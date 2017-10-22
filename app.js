@@ -7,6 +7,7 @@ const axios = require('axios');
 var request = require("request");
 var http = require('https');
 var bodyparser = require('body-parser');
+var FormData = require('form-data');
 
 var SDK = require('ringcentral');
 var rcsdk = new SDK({ 
@@ -113,6 +114,7 @@ app.use('/voicebase/callback', function(req, res) {
 
 // Callback method received after subscribing to webhook
 app.post('/callback', function (req, res) {
+    console.log(req.body)
     var validationToken = req.get('Validation-Token');
     var body =[];
 
@@ -122,25 +124,43 @@ app.post('/callback', function (req, res) {
         res.statusCode = 200;
         res.end();
     } else {
-        req.on('data', function(chunk) {
-            body.push(chunk);
-        }).on('end', function() {
-            //  Stick all our buffers into a string
-            body = Buffer.concat(body).toString();
-            //  Create an object version of that string
-            var bodyObj = JSON.parse(body);
-            //  Print the entire object that was received.
-            //  If there's an attachment, print the location of it.
-            if (bodyObj.body.attachments) {
-                var fileLocation = bodyObj.body.attachments[0].contentUri;
-                console.log("FILE LOCATION", fileLocation);
-            }
-            res.statusCode = 200;
-            res.end(body);
-            if(bodyObj.event == "/restapi/v1.0/subscription/~?threshold=60&interval=15"){
+        var bodyObj = req.body;
+        if (bodyObj.body.attachments) {
+            
+            var fileLocation = bodyObj.body.attachments[0].contentUri;
+            console.log("FILE LOCATION", fileLocation);
+
+            request(
+             {
+                 method: 'POST',
+                 url: 'https://apis.voicebase.com/v3/media',
+                 headers:
+                     {
+                         contentType: 'multipart/form-data',
+                         accept: 'application/json',
+                         authorization: process.env.VOICEBASE_BEARER
+                     },
+                 formData: {
+                    mediaUrl: fileLocation,
+                    configuration: '{"speechModel" : { "language" : "en-US"}, "publish": {"callbacks": [{"url" : "https://ebf95d80.ngrok.io/voicebase/callback","method" : "POST","include" : [ "transcript", "knowledge", "metadata", "prediction", "streams", "spotting" ]}]},"prediction":{"detectors":[]}, "transcript":{"formatting":{"enableNumberFormatting": true},"contentFiltering": {"enableProfanityFiltering": true}}, "vocabularies": [] , "knowledge": {"enableDiscovery": true,"enableExternalDataSources" : true},"priority":"normal"}'
+                 }
+             }, function(error, response, body){
+                 if(error){
+                     console.log(error);
+                 } else {
+                     console.log(body);
+                 }
+             });
+
+        }
+        else {
+            console.log("Message received", bodyObj);   
+        }
+        res.statusCode = 200;
+        res.end("END");
+        if(bodyObj.event == "/restapi/v1.0/subscription/~?threshold=60&interval=15"){
                 renewSubscription(bodyObj.subscriptionId);
-            }
-        });
+        }
     }
 });
 
