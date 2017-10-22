@@ -4,19 +4,7 @@ var express = require('express');
 var request = require('request');
 const RC = require('ringcentral');
 const axios = require('axios');
-var request = require("request");
-var http = require('https');
-var bodyparser = require('body-parser');
-var FormData = require('form-data');
 
-var SDK = require('ringcentral');
-var rcsdk = new SDK({ 
-    server: SDK.server.sandbox, 
-    appKey: process.env.CLIENT_ID,
-    appSecret: process.env.CLIENT_SECRET,
-    redirectUri: '' // optional, but is required for Implicit Grant and Authorization Code OAuth Flows
-                    // (see https://github.com/ringcentral/ringcentral-js#api-calls)
-});
 
 const PORT= process.env.PORT;
 const REDIRECT_HOST= process.env.REDIRECT_HOST;
@@ -35,7 +23,6 @@ app.listen(PORT, function () {
     console.log("Example app listening on port " + PORT);
 });
 
-app.use(bodyparser.json());
 
 // This route handles GET requests to our root ngrok address and responds with the same "Ngrok is working message" we used before
 app.get('/', function(req, res) {
@@ -73,48 +60,8 @@ app.get('/oauth', function (req, res) {
     }
 });
 
-app.use('/voicebase/callback', function(req, res) {
-   console.log("RECEIVED VOICEBASE'S OUTPUT");
-   
-   //   Get the transcript from the object returned by VoiceBase
-   var myWords = req.body.transcript.words;
-   var transcript = "";
-   for (var i = 0; i < myWords.length; i++) {
-       transcript = transcript.concat(myWords[i].w + " ");
-   }
-   
-   //   ADD HERE: LOGIC THAT TURNS TRANSCRIPT INTO NOTES
-   
-   //   Configure RingCentral API call to get groups.
-   var config = {
-            headers: {
-              "Authorization" : process.env.RC_BEARER
-            }
-   };
-   //   RingCentral API Call: Fetch Teams
-   axios.get('https://platform.devtest.ringcentral.com/restapi/v1.0/glip/groups?type=Team', config)
-            .then(function(resp) {
-              console.log("Fetching groups");
-              console.log(resp.data);
-              var postToThisGroupId = resp.data.records[0].id;
-              //    RingCentral API Call: Post to the first Team retrieved
-              axios({
-                    method: 'post',
-                    url: 'https://platform.devtest.ringcentral.com/restapi/v1.0/glip/posts',
-                    data: {
-                        groupId: postToThisGroupId,
-                        text: transcript
-                    },
-                    headers: {
-                          "Authorization" : process.env.RC_BEARER
-                        }
-            });
-   });
-});
-
 // Callback method received after subscribing to webhook
 app.post('/callback', function (req, res) {
-    console.log(req.body)
     var validationToken = req.get('Validation-Token');
     var body =[];
 
@@ -124,43 +71,26 @@ app.post('/callback', function (req, res) {
         res.statusCode = 200;
         res.end();
     } else {
-        var bodyObj = req.body;
-        if (bodyObj.body.attachments) {
-            
-            var fileLocation = bodyObj.body.attachments[0].contentUri;
-            console.log("FILE LOCATION", fileLocation);
-
-            request(
-             {
-                 method: 'POST',
-                 url: 'https://apis.voicebase.com/v3/media',
-                 headers:
-                     {
-                         contentType: 'multipart/form-data',
-                         accept: 'application/json',
-                         authorization: process.env.VOICEBASE_BEARER
-                     },
-                 formData: {
-                    mediaUrl: fileLocation,
-                    configuration: '{"speechModel" : { "language" : "en-US"}, "publish": {"callbacks": [{"url" : "https://ebf95d80.ngrok.io/voicebase/callback","method" : "POST","include" : [ "transcript", "knowledge", "metadata", "prediction", "streams", "spotting" ]}]},"prediction":{"detectors":[]}, "transcript":{"formatting":{"enableNumberFormatting": true},"contentFiltering": {"enableProfanityFiltering": true}}, "vocabularies": [] , "knowledge": {"enableDiscovery": true,"enableExternalDataSources" : true},"priority":"normal"}'
-                 }
-             }, function(error, response, body){
-                 if(error){
-                     console.log(error);
-                 } else {
-                     console.log(body);
-                 }
-             });
-
-        }
-        else {
-            console.log("Message received", bodyObj);   
-        }
-        res.statusCode = 200;
-        res.end("END");
-        if(bodyObj.event == "/restapi/v1.0/subscription/~?threshold=60&interval=15"){
-                renewSubscription(bodyObj.subscriptionId);
-        }
+        req.on('data', function(chunk) {
+            body.push(chunk);
+        }).on('end', function() {
+            //  Stick all our buffers into a string
+            body = Buffer.concat(body).toString();
+            //  Create an object version of that string
+            var bodyObj = JSON.parse(body);
+            //  Print the entire object that was received.
+            //  If there's an attachment, print the location of it.
+            if (bodyObj.body.attachments) {
+                var fileLocation = bodyObj.body.attachments[0].contentUri;
+                console.log("FILE LOCATION", fileLocation);
+            }
+            var obj = JSON.parse(body);
+            res.statusCode = 200;
+            res.end(body);
+            if(obj.event == "/restapi/v1.0/subscription/~?threshold=60&interval=15"){
+                renewSubscription(obj.subscriptionId);
+            }
+        });
     }
 });
 
