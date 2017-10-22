@@ -3,6 +3,7 @@ require('dotenv').config();
 var express = require('express');
 var request = require('request');
 const RC = require('ringcentral');
+const axios = require('axios');
 
 
 const PORT= process.env.PORT;
@@ -73,8 +74,16 @@ app.post('/callback', function (req, res) {
         req.on('data', function(chunk) {
             body.push(chunk);
         }).on('end', function() {
+            //  Stick all our buffers into a string
             body = Buffer.concat(body).toString();
-            console.log('WEBHOOK EVENT BODY: ', body);
+            //  Create an object version of that string
+            var bodyObj = JSON.parse(body);
+            //  Print the entire object that was received.
+            //  If there's an attachment, print the location of it.
+            if (bodyObj.body.attachments) {
+                var fileLocation = bodyObj.body.attachments[0].contentUri;
+                console.log("FILE LOCATION", fileLocation);
+            }
             var obj = JSON.parse(body);
             res.statusCode = 200;
             res.end(body);
