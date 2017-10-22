@@ -4,7 +4,9 @@ var express = require('express');
 var request = require('request');
 const RC = require('ringcentral');
 const axios = require('axios');
-
+var request = require("request");
+var http = require('https');
+var bodyparser = require('body-parser');
 
 const PORT= process.env.PORT;
 const REDIRECT_HOST= process.env.REDIRECT_HOST;
@@ -23,6 +25,7 @@ app.listen(PORT, function () {
     console.log("Example app listening on port " + PORT);
 });
 
+app.use(bodyparser.json());
 
 // This route handles GET requests to our root ngrok address and responds with the same "Ngrok is working message" we used before
 app.get('/', function(req, res) {
@@ -60,6 +63,19 @@ app.get('/oauth', function (req, res) {
     }
 });
 
+app.use('/voicebase/callback', function(req, res) {
+   console.log("RECEIVED SHIT FROM VOICEBASE");
+   var myWords = req.body.transcript.words;
+   var transcript = "";
+   for (var i = 0; i < myWords.length; i++) {
+       transcript = transcript.concat(myWords[i].w + " ");
+   }
+   console.log(transcript);
+   res.end();
+   //   1. Logic that turns the transcript into 'Notes'
+   //   2. API calls that send that through Glip
+});
+
 // Callback method received after subscribing to webhook
 app.post('/callback', function (req, res) {
     var validationToken = req.get('Validation-Token');
@@ -84,11 +100,11 @@ app.post('/callback', function (req, res) {
                 var fileLocation = bodyObj.body.attachments[0].contentUri;
                 console.log("FILE LOCATION", fileLocation);
             }
-            var obj = JSON.parse(body);
+            //  THIS IS WHERE WE STOP VOICEBASE SHIT
             res.statusCode = 200;
             res.end(body);
-            if(obj.event == "/restapi/v1.0/subscription/~?threshold=60&interval=15"){
-                renewSubscription(obj.subscriptionId);
+            if(bodyObj.event == "/restapi/v1.0/subscription/~?threshold=60&interval=15"){
+                renewSubscription(bodyObj.subscriptionId);
             }
         });
     }
