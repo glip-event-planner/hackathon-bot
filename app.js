@@ -8,6 +8,7 @@ var request = require("request");
 var http = require('https');
 var bodyparser = require('body-parser');
 var FormData = require('form-data');
+var format = require('./format.js');
 
 var SDK = require('ringcentral');
 var rcsdk = new SDK({ 
@@ -83,7 +84,8 @@ app.use('/voicebase/callback', function(req, res) {
        transcript = transcript.concat(myWords[i].w + " ");
    }
    
-   //   ADD HERE: LOGIC THAT TURNS TRANSCRIPT INTO NOTES
+   //   FORMATTING AND CLEANING UP OUR TRANSCRIPT
+   var resultTranscript = format.format(transcript);
    
    //   Configure RingCentral API call to get groups.
    var config = {
@@ -94,8 +96,7 @@ app.use('/voicebase/callback', function(req, res) {
    //   RingCentral API Call: Fetch Teams
    axios.get('https://platform.devtest.ringcentral.com/restapi/v1.0/glip/groups?type=Team', config)
             .then(function(resp) {
-              console.log("Fetching groups");
-              console.log(resp.data);
+              console.log("FETCHING GLIP GROUP");
               var postToThisGroupId = resp.data.records[0].id;
               //    RingCentral API Call: Post to the first Team retrieved
               axios({
@@ -103,7 +104,7 @@ app.use('/voicebase/callback', function(req, res) {
                     url: 'https://platform.devtest.ringcentral.com/restapi/v1.0/glip/posts',
                     data: {
                         groupId: postToThisGroupId,
-                        text: transcript
+                        text: resultTranscript
                     },
                     headers: {
                           "Authorization" : process.env.RC_BEARER
@@ -114,7 +115,6 @@ app.use('/voicebase/callback', function(req, res) {
 
 // Callback method received after subscribing to webhook
 app.post('/callback', function (req, res) {
-    console.log(req.body)
     var validationToken = req.get('Validation-Token');
     var body =[];
 
@@ -128,7 +128,7 @@ app.post('/callback', function (req, res) {
         if (bodyObj.body.attachments) {
             
             var fileLocation = bodyObj.body.attachments[0].contentUri;
-            console.log("FILE LOCATION", fileLocation);
+            console.log("FILE RECEIVED, STORED AT: ", fileLocation);
 
             request(
              {
@@ -142,7 +142,7 @@ app.post('/callback', function (req, res) {
                      },
                  formData: {
                     mediaUrl: fileLocation,
-                    configuration: '{"speechModel" : { "language" : "en-US"}, "publish": {"callbacks": [{"url" : "https://ebf95d80.ngrok.io/voicebase/callback","method" : "POST","include" : [ "transcript", "knowledge", "metadata", "prediction", "streams", "spotting" ]}]},"prediction":{"detectors":[]}, "transcript":{"formatting":{"enableNumberFormatting": true},"contentFiltering": {"enableProfanityFiltering": true}}, "vocabularies": [] , "knowledge": {"enableDiscovery": true,"enableExternalDataSources" : true},"priority":"normal"}'
+                    configuration: '{"speechModel" : { "language" : "en-US"}, "publish": {"callbacks": [{"url" : "https://ebf95d80.ngrok.io/voicebase/callback","method" : "POST","include" : [ "transcript", "knowledge", "metadata", "prediction", "streams", "spotting" ]}, {"url" : "https://requestb.in/1hj21511","method" : "POST","include" : [ "transcript", "knowledge", "metadata", "prediction", "streams", "spotting" ]}]},"prediction":{"detectors":[]}, "transcript":{"formatting":{"enableNumberFormatting": true},"contentFiltering": {"enableProfanityFiltering": true}}, "vocabularies": [{"terms" : [{"term":"Sam","weight": 1,"soundsLike": ["Send, Sam"]},{"term":"Xander","weight": 0,"soundsLike": ["Zander"]}]}] , "knowledge": {"enableDiscovery": true,"enableExternalDataSources" : true},"priority":"normal","spotting": {"groups": [ { "groupName": "TeamMeetings"}]}}'
                  }
              }, function(error, response, body){
                  if(error){
@@ -154,7 +154,7 @@ app.post('/callback', function (req, res) {
 
         }
         else {
-            console.log("Message received", bodyObj);   
+            console.log("MESSAGE RECEIVED: ", bodyObj);   
         }
         res.statusCode = 200;
         res.end("END");
