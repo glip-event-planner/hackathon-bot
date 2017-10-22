@@ -8,6 +8,15 @@ var request = require("request");
 var http = require('https');
 var bodyparser = require('body-parser');
 
+var SDK = require('ringcentral');
+var rcsdk = new SDK({ 
+    server: SDK.server.sandbox, 
+    appKey: process.env.CLIENT_ID,
+    appSecret: process.env.CLIENT_SECRET,
+    redirectUri: '' // optional, but is required for Implicit Grant and Authorization Code OAuth Flows
+                    // (see https://github.com/ringcentral/ringcentral-js#api-calls)
+});
+
 const PORT= process.env.PORT;
 const REDIRECT_HOST= process.env.REDIRECT_HOST;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -64,16 +73,42 @@ app.get('/oauth', function (req, res) {
 });
 
 app.use('/voicebase/callback', function(req, res) {
-   console.log("RECEIVED SHIT FROM VOICEBASE");
+   console.log("RECEIVED VOICEBASE'S OUTPUT");
+   
+   //   Get the transcript from the object returned by VoiceBase
    var myWords = req.body.transcript.words;
    var transcript = "";
    for (var i = 0; i < myWords.length; i++) {
        transcript = transcript.concat(myWords[i].w + " ");
    }
-   console.log(transcript);
-   res.end();
-   //   1. Logic that turns the transcript into 'Notes'
-   //   2. API calls that send that through Glip
+   
+   //   ADD HERE: LOGIC THAT TURNS TRANSCRIPT INTO NOTES
+   
+   //   Configure RingCentral API call to get groups.
+   var config = {
+            headers: {
+              "Authorization" : process.env.RC_BEARER
+            }
+   };
+   //   RingCentral API Call: Fetch Teams
+   axios.get('https://platform.devtest.ringcentral.com/restapi/v1.0/glip/groups?type=Team', config)
+            .then(function(resp) {
+              console.log("Fetching groups");
+              console.log(resp.data);
+              var postToThisGroupId = resp.data.records[0].id;
+              //    RingCentral API Call: Post to the first Team retrieved
+              axios({
+                    method: 'post',
+                    url: 'https://platform.devtest.ringcentral.com/restapi/v1.0/glip/posts',
+                    data: {
+                        groupId: postToThisGroupId,
+                        text: transcript
+                    },
+                    headers: {
+                          "Authorization" : process.env.RC_BEARER
+                        }
+            });
+   });
 });
 
 // Callback method received after subscribing to webhook
@@ -100,7 +135,6 @@ app.post('/callback', function (req, res) {
                 var fileLocation = bodyObj.body.attachments[0].contentUri;
                 console.log("FILE LOCATION", fileLocation);
             }
-            //  THIS IS WHERE WE STOP VOICEBASE SHIT
             res.statusCode = 200;
             res.end(body);
             if(bodyObj.event == "/restapi/v1.0/subscription/~?threshold=60&interval=15"){
