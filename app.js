@@ -31,7 +31,7 @@ var platform, subscription, rcsdk, subscriptionId, bot_token;
 
 
 // Let's start our server
-app.listen(PORT, function() {
+app.listen(PORT, () => {
     //Callback triggered when server is successfully listening. Hurray!
     console.log(`Example app listening on port ${PORT}`);
 });
@@ -39,7 +39,7 @@ app.listen(PORT, function() {
 app.use(bodyparser.json());
 
 // This route handles GET requests to our root ngrok address and responds with the same "Ngrok is working message" we used before
-app.get('/', function(req, res) {
+app.get('/', (req, res) => {
     res.send(`Ngrok is working! Path Hit: ${req.url}`);
 });
 
@@ -53,7 +53,7 @@ rcsdk = new RC({
 platform = rcsdk.platform();
 
 //Authorization callback method.
-app.get('/oauth', function(req, res) {
+app.get('/oauth', (req, res) => {
     if (!req.query.code) {
         res.status(500);
         res.send({'Error': 'Looks like we\'re not getting code.'});
@@ -62,19 +62,19 @@ app.get('/oauth', function(req, res) {
         platform.login({
             code: req.query.code,
             redirectUri : `${REDIRECT_HOST}/oauth`
-        }).then(function(authResponse) {
+        }).then(authResponse => {
             var obj = authResponse.json();
             bot_token = obj.access_token;
             res.send(obj)
             subscribeToGlipEvents();
-        }).catch(function(e) {
+        }).catch(e => {
             console.error(e)
             res.send(`Error: ${e}`);
         })
     }
 });
 
-app.use('/voicebase/callback', function(req, res) {
+app.use('/voicebase/callback', (req, res) => {
    console.log('RECEIVED VOICEBASE\'S OUTPUT');
 
    //   Get the transcript from the object returned by VoiceBase
@@ -95,7 +95,7 @@ app.use('/voicebase/callback', function(req, res) {
    };
    //   RingCentral API Call: Fetch Teams
    axios.get('https://platform.devtest.ringcentral.com/restapi/v1.0/glip/groups?type=Team', config)
-            .then(function(resp) {
+            .then(resp) => {
               console.log('FETCHING GLIP GROUP');
               var postToThisGroupId = resp.data.records[0].id;
               //    RingCentral API Call: Post to the first Team retrieved
@@ -114,7 +114,7 @@ app.use('/voicebase/callback', function(req, res) {
 });
 
 // Callback method received after subscribing to webhook
-app.post('/callback', function(req, res) {
+app.post('/callback', (req, res) => {
     var validationToken = req.get('Validation-Token');
     var body =[];
 
@@ -144,7 +144,7 @@ app.post('/callback', function(req, res) {
                     mediaUrl: fileLocation,
                     configuration: '{"speechModel" : { "language" : "en-US"}, "publish": {"callbacks": [{"url" : "https://ebf95d80.ngrok.io/voicebase/callback","method" : "POST","include" : [ "transcript", "knowledge", "metadata", "prediction", "streams", "spotting" ]}, {"url" : "https://requestb.in/1hj21511","method" : "POST","include" : [ "transcript", "knowledge", "metadata", "prediction", "streams", "spotting" ]}]},"prediction":{"detectors":[]}, "transcript":{"formatting":{"enableNumberFormatting": true},"contentFiltering": {"enableProfanityFiltering": true}}, "vocabularies": [{"terms" : [{"term":"Sam","weight": 1,"soundsLike": ["Send, Sam"]},{"term":"Xander","weight": 0,"soundsLike": ["Zander"]}]}] , "knowledge": {"enableDiscovery": true,"enableExternalDataSources" : true},"priority":"normal","spotting": {"groups": [ { "groupName": "TeamMeetings"}]}}'
                  }
-             }, function(error, response, body) {
+             }, (error, response, body) => {
                  if (error) {
                      console.log(error);
                  } else {
@@ -180,11 +180,11 @@ function subscribeToGlipEvents(token) {
         'expiresIn': 604799
     };
     platform.post('/subscription', requestData)
-        .then(function(subscriptionResponse) {
+        .then(subscriptionResponse => {
             console.log(`Subscription Response: ${subscriptionResponse.json()}`);
             subscription = subscriptionResponse;
             subscriptionId = subscriptionResponse.id;
-        }).catch(function(e) {
+        }).catch(e => {
             console.error(e);
             throw e;
     });
@@ -193,11 +193,11 @@ function subscribeToGlipEvents(token) {
 function renewSubscription(id) {
     console.log('Renewing Subscription');
     platform.post(`/subscription/${id}/renew`)
-        .then(function(response) {
+        .then(response => {
             var data = JSON.parse(response.text());
             subscriptionId = data.id;
             console.log(`Subscription renewal successful. Next renewal scheduled for: ${data.expirationTime}`);
-        }).catch(function(e) {
+        }).catch(e => {
             console.error(e);
             throw e;
         });
