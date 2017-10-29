@@ -4,15 +4,15 @@ var express = require('express');
 var request = require('request');
 const RC = require('ringcentral');
 const axios = require('axios');
-var request = require("request");
+var request = require('request');
 var http = require('https');
 var bodyparser = require('body-parser');
 var FormData = require('form-data');
 var format = require('./format.js');
 
 var SDK = require('ringcentral');
-var rcsdk = new SDK({ 
-    server: SDK.server.sandbox, 
+var rcsdk = new SDK({
+    server: SDK.server.sandbox,
     appKey: process.env.CLIENT_ID,
     appSecret: process.env.CLIENT_SECRET,
     redirectUri: '' // optional, but is required for Implicit Grant and Authorization Code OAuth Flows
@@ -33,7 +33,7 @@ var platform, subscription, rcsdk, subscriptionId, bot_token;
 // Lets start our server
 app.listen(PORT, function () {
     //Callback triggered when server is successfully listening. Hurray!
-    console.log("Example app listening on port " + PORT);
+    console.log(`Example app listening on port ${PORT}`);
 });
 
 app.use(bodyparser.json());
@@ -56,8 +56,8 @@ platform = rcsdk.platform();
 app.get('/oauth', function (req, res) {
     if(!req.query.code){
         res.status(500);
-        res.send({"Error": "Looks like we're not getting code."});
-        console.log("Looks like we're not getting code.");
+        res.send({'Error': 'Looks like we\'re not getting code.'});
+        console.log('Looks like we\'re not getting code.');
     }else {
         platform.login({
             code : req.query.code,
@@ -69,34 +69,34 @@ app.get('/oauth', function (req, res) {
             subscribeToGlipEvents();
         }).catch(function(e){
             console.error(e)
-            res.send("Error: " + e);
+            res.send(`Error: ${e}`);
         })
     }
 });
 
 app.use('/voicebase/callback', function(req, res) {
-   console.log("RECEIVED VOICEBASE'S OUTPUT");
-   
+   console.log('RECEIVED VOICEBASE\'S OUTPUT');
+
    //   Get the transcript from the object returned by VoiceBase
    var myWords = req.body.transcript.words;
-   var transcript = "";
+   var transcript = '';
    for (var i = 0; i < myWords.length; i++) {
        transcript = transcript.concat(myWords[i].w + " ");
    }
-   
+
    //   FORMATTING AND CLEANING UP OUR TRANSCRIPT
    var resultTranscript = format.format(transcript);
-   
+
    //   Configure RingCentral API call to get groups.
    var config = {
             headers: {
-              "Authorization" : process.env.RC_BEARER
+              'Authorization' : process.env.RC_BEARER
             }
    };
    //   RingCentral API Call: Fetch Teams
    axios.get('https://platform.devtest.ringcentral.com/restapi/v1.0/glip/groups?type=Team', config)
             .then(function(resp) {
-              console.log("FETCHING GLIP GROUP");
+              console.log('FETCHING GLIP GROUP');
               var postToThisGroupId = resp.data.records[0].id;
               //    RingCentral API Call: Post to the first Team retrieved
               axios({
@@ -107,7 +107,7 @@ app.use('/voicebase/callback', function(req, res) {
                         text: resultTranscript
                     },
                     headers: {
-                          "Authorization" : process.env.RC_BEARER
+                          'Authorization' : process.env.RC_BEARER
                         }
             });
    });
@@ -126,9 +126,9 @@ app.post('/callback', function (req, res) {
     } else {
         var bodyObj = req.body;
         if (bodyObj.body.attachments) {
-            
+
             var fileLocation = bodyObj.body.attachments[0].contentUri;
-            console.log("FILE RECEIVED, STORED AT: ", fileLocation);
+            console.log(`FILE RECEIVED, STORED AT: ${fileLocation}`);
 
             request(
              {
@@ -154,34 +154,34 @@ app.post('/callback', function (req, res) {
 
         }
         else {
-            console.log("MESSAGE RECEIVED: ", bodyObj);   
+            console.log(`MESSAGE RECEIVED: ${bodyObj}`);
         }
         res.statusCode = 200;
-        res.end("END");
-        if(bodyObj.event == "/restapi/v1.0/subscription/~?threshold=60&interval=15"){
+        res.end('END');
+        if(bodyObj.event == '/restapi/v1.0/subscription/~?threshold=60&interval=15'){
                 renewSubscription(bodyObj.subscriptionId);
         }
     }
 });
 
 // Method to Subscribe to Glip Events.
-function subscribeToGlipEvents(token){
+function subscribeToGlipEvents(token) {
 
     var requestData = {
-        "eventFilters": [
-            "/restapi/v1.0/glip/posts",
-            "/restapi/v1.0/glip/groups",
-            "/restapi/v1.0/subscription/~?threshold=60&interval=15"
+        'eventFilters': [
+            '/restapi/v1.0/glip/posts',
+            '/restapi/v1.0/glip/groups',
+            '/restapi/v1.0/subscription/~?threshold=60&interval=15'
         ],
-        "deliveryMode": {
-            "transportType": "WebHook",
-            "address": REDIRECT_HOST + "/callback"
+        'deliveryMode': {
+            'transportType': 'WebHook',
+            'address': `${REDIRECT_HOST}/callback`
         },
-        "expiresIn": 604799
+        'expiresIn': 604799
     };
     platform.post('/subscription', requestData)
         .then(function (subscriptionResponse) {
-            console.log('Subscription Response: ', subscriptionResponse.json());
+            console.log(`Subscription Response: ${subscriptionResponse.json()}`);
             subscription = subscriptionResponse;
             subscriptionId = subscriptionResponse.id;
         }).catch(function (e) {
@@ -190,13 +190,13 @@ function subscribeToGlipEvents(token){
     });
 }
 
-function renewSubscription(id){
-    console.log("Renewing Subscription");
-    platform.post('/subscription/' + id + "/renew")
-        .then(function(response){
+function renewSubscription(id) {
+    console.log('Renewing Subscription');
+    platform.post(`/subscription/${id}/renew`)
+        .then(function(response) {
             var data = JSON.parse(response.text());
-            subscriptionId = data.id
-            console.log("Subscription Renewal Successfull. Next Renewal scheduled for:" + data.expirationTime);
+            subscriptionId = data.id;
+            console.log(`Subscription renewal successful. Next renewal scheduled for: ${data.expirationTime}`);
         }).catch(function(e) {
             console.error(e);
             throw e;
