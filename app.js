@@ -1,46 +1,46 @@
 require('dotenv').config();
 
-var express = require('express');
-var request = require('request');
+const express = require('express');
+const request = require('request');
 const RC = require('ringcentral');
 const axios = require('axios');
-var request = require("request");
-var http = require('https');
-var bodyparser = require('body-parser');
-var FormData = require('form-data');
-var format = require('./format.js');
+const request = require('request');
+const http = require('https');
+const bodyparser = require('body-parser');
+const FormData = require('form-data');
+const format = require('./format.js');
+const SDK = require('ringcentral');
 
-var SDK = require('ringcentral');
-var rcsdk = new SDK({ 
-    server: SDK.server.sandbox, 
+var rcsdk = new SDK({
+    server: SDK.server.sandbox,
     appKey: process.env.CLIENT_ID,
     appSecret: process.env.CLIENT_SECRET,
     redirectUri: '' // optional, but is required for Implicit Grant and Authorization Code OAuth Flows
                     // (see https://github.com/ringcentral/ringcentral-js#api-calls)
 });
 
-const PORT= process.env.PORT;
-const REDIRECT_HOST= process.env.REDIRECT_HOST;
+const PORT = process.env.PORT;
+const REDIRECT_HOST = process.env.REDIRECT_HOST;
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
-const RINGCENTRAL_ENV= process.env.RINGCENTRAL_ENV;
+const RINGCENTRAL_ENV = process.env.RINGCENTRAL_ENV;
 
 
 var app = express();
 var platform, subscription, rcsdk, subscriptionId, bot_token;
 
 
-// Lets start our server
-app.listen(PORT, function () {
+// Let's start our server
+app.listen(PORT, () => {
     //Callback triggered when server is successfully listening. Hurray!
-    console.log("Example app listening on port " + PORT);
+    console.log(`Example app listening on port ${PORT}`);
 });
 
 app.use(bodyparser.json());
 
 // This route handles GET requests to our root ngrok address and responds with the same "Ngrok is working message" we used before
-app.get('/', function(req, res) {
-    res.send('Ngrok is working! Path Hit: ' + req.url);
+app.get('/', (req, res) => {
+    res.send(`Ngrok is working! Path Hit: ${req.url}`);
 });
 
 
@@ -53,50 +53,50 @@ rcsdk = new RC({
 platform = rcsdk.platform();
 
 //Authorization callback method.
-app.get('/oauth', function (req, res) {
-    if(!req.query.code){
+app.get('/oauth', (req, res) => {
+    if (!req.query.code) {
         res.status(500);
-        res.send({"Error": "Looks like we're not getting code."});
-        console.log("Looks like we're not getting code.");
-    }else {
+        res.send({'Error': 'Looks like we\'re not getting code.'});
+        console.log('Looks like we\'re not getting code.');
+    } else {
         platform.login({
-            code : req.query.code,
-            redirectUri : REDIRECT_HOST + '/oauth'
-        }).then(function(authResponse){
+            code: req.query.code,
+            redirectUri : `${REDIRECT_HOST}/oauth`
+        }).then(authResponse => {
             var obj = authResponse.json();
             bot_token = obj.access_token;
             res.send(obj)
             subscribeToGlipEvents();
-        }).catch(function(e){
+        }).catch(e => {
             console.error(e)
-            res.send("Error: " + e);
+            res.send(`Error: ${e}`);
         })
     }
 });
 
-app.use('/voicebase/callback', function(req, res) {
-   console.log("RECEIVED VOICEBASE'S OUTPUT");
-   
+app.use('/voicebase/callback', (req, res) => {
+   console.log('RECEIVED VOICEBASE\'S OUTPUT');
+
    //   Get the transcript from the object returned by VoiceBase
    var myWords = req.body.transcript.words;
-   var transcript = "";
+   var transcript = '';
    for (var i = 0; i < myWords.length; i++) {
-       transcript = transcript.concat(myWords[i].w + " ");
+       transcript = transcript.concat(myWords[i].w + ' ');
    }
-   
+
    //   FORMATTING AND CLEANING UP OUR TRANSCRIPT
    var resultTranscript = format.format(transcript);
-   
+
    //   Configure RingCentral API call to get groups.
    var config = {
             headers: {
-              "Authorization" : process.env.RC_BEARER
+              'Authorization' : process.env.RC_BEARER
             }
    };
    //   RingCentral API Call: Fetch Teams
    axios.get('https://platform.devtest.ringcentral.com/restapi/v1.0/glip/groups?type=Team', config)
-            .then(function(resp) {
-              console.log("FETCHING GLIP GROUP");
+            .then(resp) => {
+              console.log('FETCHING GLIP GROUP');
               var postToThisGroupId = resp.data.records[0].id;
               //    RingCentral API Call: Post to the first Team retrieved
               axios({
@@ -107,14 +107,14 @@ app.use('/voicebase/callback', function(req, res) {
                         text: resultTranscript
                     },
                     headers: {
-                          "Authorization" : process.env.RC_BEARER
+                          'Authorization' : process.env.RC_BEARER
                         }
             });
    });
 });
 
 // Callback method received after subscribing to webhook
-app.post('/callback', function (req, res) {
+app.post('/callback', (req, res) => {
     var validationToken = req.get('Validation-Token');
     var body =[];
 
@@ -126,9 +126,9 @@ app.post('/callback', function (req, res) {
     } else {
         var bodyObj = req.body;
         if (bodyObj.body.attachments) {
-            
+
             var fileLocation = bodyObj.body.attachments[0].contentUri;
-            console.log("FILE RECEIVED, STORED AT: ", fileLocation);
+            console.log(`FILE RECEIVED, STORED AT: ${fileLocation}`);
 
             request(
              {
@@ -144,8 +144,8 @@ app.post('/callback', function (req, res) {
                     mediaUrl: fileLocation,
                     configuration: '{"speechModel" : { "language" : "en-US"}, "publish": {"callbacks": [{"url" : "https://ebf95d80.ngrok.io/voicebase/callback","method" : "POST","include" : [ "transcript", "knowledge", "metadata", "prediction", "streams", "spotting" ]}, {"url" : "https://requestb.in/1hj21511","method" : "POST","include" : [ "transcript", "knowledge", "metadata", "prediction", "streams", "spotting" ]}]},"prediction":{"detectors":[]}, "transcript":{"formatting":{"enableNumberFormatting": true},"contentFiltering": {"enableProfanityFiltering": true}}, "vocabularies": [{"terms" : [{"term":"Sam","weight": 1,"soundsLike": ["Send, Sam"]},{"term":"Xander","weight": 0,"soundsLike": ["Zander"]}]}] , "knowledge": {"enableDiscovery": true,"enableExternalDataSources" : true},"priority":"normal","spotting": {"groups": [ { "groupName": "TeamMeetings"}]}}'
                  }
-             }, function(error, response, body){
-                 if(error){
+             }, (error, response, body) => {
+                 if (error) {
                      console.log(error);
                  } else {
                      console.log(body);
@@ -154,50 +154,50 @@ app.post('/callback', function (req, res) {
 
         }
         else {
-            console.log("MESSAGE RECEIVED: ", bodyObj);   
+            console.log(`MESSAGE RECEIVED: ${bodyObj}`);
         }
         res.statusCode = 200;
-        res.end("END");
-        if(bodyObj.event == "/restapi/v1.0/subscription/~?threshold=60&interval=15"){
+        res.end('END');
+        if (bodyObj.event == '/restapi/v1.0/subscription/~?threshold=60&interval=15') {
                 renewSubscription(bodyObj.subscriptionId);
         }
     }
 });
 
 // Method to Subscribe to Glip Events.
-function subscribeToGlipEvents(token){
+function subscribeToGlipEvents(token) {
 
     var requestData = {
-        "eventFilters": [
-            "/restapi/v1.0/glip/posts",
-            "/restapi/v1.0/glip/groups",
-            "/restapi/v1.0/subscription/~?threshold=60&interval=15"
+        'eventFilters': [
+            '/restapi/v1.0/glip/posts',
+            '/restapi/v1.0/glip/groups',
+            '/restapi/v1.0/subscription/~?threshold=60&interval=15'
         ],
-        "deliveryMode": {
-            "transportType": "WebHook",
-            "address": REDIRECT_HOST + "/callback"
+        'deliveryMode': {
+            'transportType': 'WebHook',
+            'address': `${REDIRECT_HOST}/callback`
         },
-        "expiresIn": 604799
+        'expiresIn': 604799
     };
     platform.post('/subscription', requestData)
-        .then(function (subscriptionResponse) {
-            console.log('Subscription Response: ', subscriptionResponse.json());
+        .then(subscriptionResponse => {
+            console.log(`Subscription Response: ${subscriptionResponse.json()}`);
             subscription = subscriptionResponse;
             subscriptionId = subscriptionResponse.id;
-        }).catch(function (e) {
+        }).catch(e => {
             console.error(e);
             throw e;
     });
 }
 
-function renewSubscription(id){
-    console.log("Renewing Subscription");
-    platform.post('/subscription/' + id + "/renew")
-        .then(function(response){
+function renewSubscription(id) {
+    console.log('Renewing Subscription');
+    platform.post(`/subscription/${id}/renew`)
+        .then(response => {
             var data = JSON.parse(response.text());
-            subscriptionId = data.id
-            console.log("Subscription Renewal Successfull. Next Renewal scheduled for:" + data.expirationTime);
-        }).catch(function(e) {
+            subscriptionId = data.id;
+            console.log(`Subscription renewal successful. Next renewal scheduled for: ${data.expirationTime}`);
+        }).catch(e => {
             console.error(e);
             throw e;
         });
