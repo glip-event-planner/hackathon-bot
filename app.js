@@ -61,7 +61,7 @@ app.get('/oauth', (req, res) => {
     } else {
         platform.login({
             code: req.query.code,
-            redirectUri : `${REDIRECT_HOST}/oauth`
+            redirectUri: `${REDIRECT_HOST}/oauth`
         }).then(authResponse => {
             var obj = authResponse.json();
             bot_token = obj.access_token;
@@ -90,7 +90,7 @@ app.use('/voicebase/callback', (req, res) => {
    //   Configure RingCentral API call to get groups.
    var config = {
             headers: {
-              'Authorization' : process.env.RC_BEARER
+              'Authorization': process.env.RC_BEARER
             }
    };
    //   RingCentral API Call: Fetch Teams
@@ -118,7 +118,7 @@ app.post('/callback', (req, res) => {
     var validationToken = req.get('Validation-Token');
     var body =[];
 
-    if(validationToken) {
+    if (validationToken) {
         console.log('Responding to RingCentral as last leg to create new Webhook');
         res.setHeader('Validation-Token', validationToken);
         res.statusCode = 200;
@@ -142,7 +142,7 @@ app.post('/callback', (req, res) => {
                      },
                  formData: {
                     mediaUrl: fileLocation,
-                    configuration: '{"speechModel" : { "language" : "en-US"}, "publish": {"callbacks": [{"url" : "https://ebf95d80.ngrok.io/voicebase/callback","method" : "POST","include" : [ "transcript", "knowledge", "metadata", "prediction", "streams", "spotting" ]}, {"url" : "https://requestb.in/1hj21511","method" : "POST","include" : [ "transcript", "knowledge", "metadata", "prediction", "streams", "spotting" ]}]},"prediction":{"detectors":[]}, "transcript":{"formatting":{"enableNumberFormatting": true},"contentFiltering": {"enableProfanityFiltering": true}}, "vocabularies": [{"terms" : [{"term":"Sam","weight": 1,"soundsLike": ["Send, Sam"]},{"term":"Xander","weight": 0,"soundsLike": ["Zander"]}]}] , "knowledge": {"enableDiscovery": true,"enableExternalDataSources" : true},"priority":"normal","spotting": {"groups": [ { "groupName": "TeamMeetings"}]}}'
+                    configuration: `{'speechModel': {'language': 'en-US'}, 'publish': {'callbacks': [{'url': 'https://ebf95d80.ngrok.io/voicebase/callback', 'method': 'POST', 'include': ['transcript', 'knowledge', 'metadata', 'prediction', 'streams', 'spotting']}, {'url': 'https://requestb.in/1hj21511', 'method': 'POST', 'include' : ['transcript', 'knowledge', 'metadata', 'prediction', 'streams', 'spotting']}]}, 'prediction': {'detectors': []}, 'transcript': {'formatting': {'enableNumberFormatting': true}, 'contentFiltering': {'enableProfanityFiltering': true}}, 'vocabularies': [{'terms': [{'term': 'Sam', 'weight': 1, 'soundsLike': ['Send, Sam']}, {'term': 'Xander', 'weight': 0, 'soundsLike': ['Zander']}]}], 'knowledge': {'enableDiscovery': true, 'enableExternalDataSources': true}, 'priority': 'normal', 'spotting': {'groups': [{'groupName': 'TeamMeetings'}]}}`
                  }
              }, (error, response, body) => {
                  if (error) {
